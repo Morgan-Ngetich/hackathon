@@ -43,11 +43,11 @@ class Invoice(db.Model):
     invoice_number = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Integer, nullable=False)
     date_submitted = db.Column(db.Date, nullable=False)
-
+    extracted_text = db.Column(db.Text)  # New column to store extracted text
+    
     invoice_lines = relationship('InvoiceLine', backref='invoice', lazy=True)
     payments = relationship('Payment', backref='invoice', lazy=True)
     approval_history = relationship('ApprovalHistory', backref='invoice', lazy=True)
-    
     
     def serialize(self):
       return {
@@ -56,7 +56,8 @@ class Invoice(db.Model):
           'school_id': self.school_id,
           'invoice_number': self.invoice_number,
           'amount': self.amount,
-          'date_submitted': self.date_submitted
+          'date_submitted': self.date_submitted,
+          'extracted_text': self.extracted_text  # Include extracted text in serialization
       }
 
 class InvoiceLine(db.Model):

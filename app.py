@@ -2,6 +2,8 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_restful import Api, Resource, reqparse
 from flask_migrate import Migrate
+from PIL import Image
+import pytesseract
 
 from models import db, User, School, Invoice, InvoiceLine, Payment, ApprovalHistory, SchoolBeneficiary, LoanProduct
 
@@ -10,7 +12,7 @@ from models import db, User, School, Invoice, InvoiceLine, Payment, ApprovalHist
 def create_app():
   
   app = Flask(__name__)
-  app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://creadable:B1Y8fNQLYPBxcp8ISl9uTNXZKO5Hbk0E@dpg-cop1n463e1ms73bn17sg-a.oregon-postgres.render.com/hackathon_ssm1'
+  app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
   app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
   db.init_app(app)
@@ -37,6 +39,35 @@ def create_app():
           if not invoice:
               return {'message': 'Invoice not found'}, 404
           return invoice.serialize()
+        
+      def post(self, invoice_id):
+          invoice = Invoice.query.get(invoice_id)
+          if not invoice:
+              return {'message': 'Invoice not found'}, 404
+          
+          # Assuming the image is uploaded as a file
+          file = request.files['file']
+          if not file:
+              return {'message': 'No file uploaded'}, 400
+
+          # Save the uploaded image
+          image_path = f'uploaded_images/{invoice_id}.png'
+          file.save(image_path)
+
+          # Perform OCR on the image
+          extracted_text = pytesseract.image_to_string(Image.open(image_path))
+
+          # Verify if the extracted text contains all required information
+          required_info = ['name', 'amount', 'date']
+          for info in required_info:
+              if info not in extracted_text.lower():
+                  return {'message': f'Missing required information: {info}'}, 400
+
+          # Update the invoice with the extracted text
+          invoice.extracted_text = extracted_text
+          db.session.commit()
+
+          return {'message': 'Invoice scanned and verified successfully', 'extracted_text': extracted_text}
 
   class InvoiceLineResource(Resource):
       def get(self, line_id):
